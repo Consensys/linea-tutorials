@@ -1,0 +1,11 @@
+# Dependencies
+node_modules
+
+# Production
+build
+
+# Env
+.env
+
+# Editor
+.vscode
