@@ -1,0 +1,47 @@
+directory = "/data/traces/work"
+processed_batches_directory = "/data/relayer/done"
+smart_contract_max_offset = 32
+bridge_enabled = true
+
+[blockchain_connector]
+connector_type = "Web3"
+url = "http://l1-validator:8545"
+smart_contract_abi_path = "/data/smart_contract/rollup.json"
+lookahead_blocks = 50
+blocks_to_finalization = 1
+forced_transaction_timeout_blocks = -1
+confirmations = 1
+gas_limit_batch = 1_000_000
+gas_limit_vote = 12_000_000
+gas_price = 2_100_100_000
+confirmation_timeout_ms = 120_000
+request_timeout_ms = 60_000
+l1_block_fetch_interval_in_ms = 6_000
+
+[batch_submission]
+wait_for_receipt_poll_interval_ms = 100
+wait_for_receipt_timeout_ms = 48000
+gas_limit = 1_000_000
+
+max_fee_per_gas = 80_000_000_000
+max_priority_fee_per_gas = 2_500_000_000
+
+[bridge_submission]
+wait_for_receipt_poll_interval_ms = 1000
+wait_for_receipt_timeout_ms = 60000
+gas_limit = 900_000
+
+max_fee_per_gas = 300_000_000_000
+max_priority_fee_per_gas = 2_500_000_000
+
+[key_management.operator_account]
+manager_type = "Filesystem"
+operator_key_path = "../node-data/test/keys/operator_1.acc"
+
+[key_management.l2_deliverer_account]
+manager_type = "Filesystem"
+operator_key_path = "../node-data/test/keys/operator_1.acc"
+
+[bridge_config]
+l2_smart_contract_address = "0x38c31972965cD3815B29F04Aa6e7e709E5Aa2bBe"
+rpc_url = "http://l2-validator:8545"

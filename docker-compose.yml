@@ -1,0 +1,247 @@
+version: "3.9"
+
+volumes:
+  local-dev:
+    name: "zkevm-local-dev"
+  logs:
+    name: "zkevm-logs"
+# to browse the volumes run
+# docker run --rm -it -v=zkevm-local-dev:/data -v=zkevm-logs:/logs ubuntu bash
+
+services:
+  # The node container is our entry point to issue RPC commands
+  # This also the network bootnode,  but it's not sealing.
+  l1-node:
+    container_name: l1-node
+    hostname: l1-node
+    image: ethereum/client-go:alltools-v1.11.4-${DOCKER_ARC_TAG:-amd64} 
+    environment:
+      DATA_DIR: "/data/l1-node/"
+      BOOTNODE_PORT: '30201'
+      NETRESTRICT: "10.10.10.0/24"
+    command: [ "sh", "/scripts/node.sh", "31648428", "/genesis.json", "0x4ecf8295", "0x1C9C380" ]
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./l1-genesis.json:/genesis.json:ro
+      - ./l1-boot.key:/boot.key:ro
+      - local-dev:/data
+    networks:
+      l1-network:
+        ipv4_address: 10.10.10.201
+
+  l1-validator:
+    container_name: l1-validator
+    hostname: l1-validator
+    image: ethereum/client-go:alltools-v1.11.4-${DOCKER_ARC_TAG:-amd64}
+    depends_on:
+      - l1-node
+    ports:
+      - "8445:8545"
+      - "8446:8546"
+      - "30201:30201"
+    environment:
+      DATA_DIR: "/data/l1-validator/"
+      NETRESTRICT: "10.10.10.0/24"
+      BOOTNODES: "enode://516f86948cc04ca4e9aaae78c9dfc89c1437f3ade5910abae7a9186a98bdfa94264db90e24895c15905f70c74e39f21639a27d88ef378f161516120ea55d67da@10.10.10.201:30201"
+    # "Usage: validator.sh etherbase networkid genesis_file gasprice gaslimit"
+    command: [ "sh", "/scripts/validator.sh", "0x6d976c9b8ceee705d4fe8699b44e5eb58242f484", "31648428", "/genesis.json", "0x4ecf8295", "0x1C9C380" ]
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./keystore/L1/:/keystore:ro
+      - ./l1-genesis.json:/genesis.json:ro
+      - local-dev:/data
+    networks:
+      - l1-network
+
+  # The node container is our entry point to issue RPC commands
+  # This also the network bootnode
+  # but it's not sealing.
+  l2-node:
+    container_name: l2-node
+    hostname: l2-node
+    image: ethereum/client-go:alltools-v1.11.4-${DOCKER_ARC_TAG:-amd64}
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+      - "30301:30301"
+    environment:
+      DATA_DIR: "/data/l2-node/"
+      BOOTNODE_PORT: '30301'
+      NETRESTRICT: "10.10.11.0/24"
+    command: [ "sh", "/scripts/node.sh", "24709958", "/genesis.json", "0xa", "0x1C9C380" ]
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./l2-genesis.json:/genesis.json:ro
+      - ./l2-boot.key:/boot.key:ro
+      - local-dev:/data/
+    networks:
+      l2-network:
+        ipv4_address: 10.10.11.201
+
+  # Validator nodes are workers that commit blocks constantly.
+  l2-validator:
+    container_name: l2-validator
+    hostname: l2-validator
+    image: consensys/linea-geth:latest
+    ports:
+      - "8645:8545"
+      - "8646:8546"
+    depends_on:
+      - l2-node
+    environment:
+      DISABLE_ZKEVM: "true"
+      MAX_BLOCK_GAS: 10000000  #10M
+      MAX_BLOCKDATA_BYTES: 35000 #35 KBytes
+      MAX_TXDATA_BYTES: 30000 #30 KBytes
+      DATA_DIR: "/data/l2-validator/"
+      BOOTNODES: "enode://bb0602f39095e9c196d4639ca7cd3013f9f84e4015a889f06ac0f14827922dd9a518f80b62c5b53fbe0f796b6c484f410ce7a0395ef5b0b8c795d150becab4bf@10.10.11.201:30301"
+      NETRESTRICT: "10.10.11.0/24"
+    entrypoint: ""
+    command: [ "sh", "/scripts/validator.sh", "0xc78635b3549a044e9d05356d1140c1a3adf4f0d4", "24709958", "/genesis.json", "0xa", "0x1C9C380" ]
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./keystore/L2:/keystore:ro
+      - ./l2-genesis.json:/genesis.json:ro
+      - local-dev:/data
+    networks:
+      - l2-network
+
+  deploy-l1-verifier:
+    container_name: deploy-l1-verifier
+    image: consensys/linea-smart-contract:${IMAGE_TAG:-develop}
+    depends_on:
+      l1-node:
+        condition: service_started
+      l1-validator:
+        condition: service_started
+    environment:
+      BLOCKCHAIN_NODE: "http://l1-validator:8545"
+      BLOCKCHAIN_TIMEOUT_MS: 30000
+      TX_GAS_LIMIT: 10000000
+      BLOCKCHAIN_GAS_PRICE: 1800000000
+      ROLLUP_GENESIS_ROOT_HASH: "0x0000000000000000000000000000000000000000000000000000000000000000"
+      SMC_CONFIG_PATH: '/smart_contract/config/smc_config.json'
+      ROLLUP_JSON_PATH: '/data/smart_contract/rollup.json'
+      SIGNATURE_VERIFICATION_FLAG: 1
+      ZK_VERIFICATION_FLAG: 1
+      PROVER_DEV_LIGHT_VERSION: 'true'
+    command:
+      - /bin/bash
+      - -c
+      - |
+        mkdir -p /data/smart_contract/ && \
+        mkdir -p $$(dirname $${SMC_CONFIG_PATH}) && \
+        cp /smart_contract/pre-config/smc_config.json $${SMC_CONFIG_PATH} && \
+        sed -i "s/\"root_hash\": \"PLACEHOLDER\",/\"root_hash\": \"$${ROLLUP_GENESIS_ROOT_HASH}\",/" $${SMC_CONFIG_PATH} && \
+        echo "smart contract initial config:" && \
+        cat $${SMC_CONFIG_PATH} && \
+        echo "" && \
+        sleep 10 && \
+        npx hardhat run --network zkevm_dev /smart_contract/scripts/hardhat/deploy.js && \
+        node /smart_contract/scripts/registerOperator.js /data/smart_contract/rollup.json /node-data/test/keys/contract_owner.acc /node-data/test/keys/operator_1.acc && \
+        node /smart_contract/scripts/changeSignatureVerification.js /data/smart_contract/rollup.json /node-data/test/keys/contract_owner.acc $${SIGNATURE_VERIFICATION_FLAG} && \
+        node /smart_contract/scripts/changeZkVerification.js /data/smart_contract/rollup.json /node-data/test/keys/contract_owner.acc $${ZK_VERIFICATION_FLAG}
+    volumes:
+      - local-dev:/data
+      - ./relayer/smart_contract/smc_config.json:/smart_contract/pre-config/smc_config.json:r
+      - ./keys/l1:/node-data/test/keys/
+    networks:
+      - l1-network
+
+  relayer:
+    container_name: relayer
+    image: consensys/linea-relayer:3429825
+    # image: consensys/linea-relayer:3429825
+    depends_on:
+      l1-node:
+        condition: service_started
+      l1-validator:
+        condition: service_started
+      l2-node:
+        condition: service_started
+      l2-validator:
+        condition: service_started
+      deploy-l1-verifier:
+        condition: service_completed_successfully
+    environment:
+      RUST_LOG: "debug,web3=info,hyper=info,reqwest=info,h2=warn,tower=info"
+      RUST_BACKTRACE: "full"
+      RELAYER_CONFIG: "/conf/${RELAYER_CONFIG:-standard.toml}"
+      ROLLUP_GENESIS_ROOT_HASH: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        export RUST_LOG=$${RUST_LOG} && \
+        blockchain_file_syncer $${RELAYER_CONFIG}
+    volumes:
+      - ./relayer/config/:/conf/:ro
+      - ./keys/l1/:/node-data/test/keys/
+      - local-dev:/data
+    networks:
+      - l1-network
+      - l2-network
+
+  zkgeth:
+    container_name: zkgeth
+    image: consensys/linea-geth:latest
+    depends_on:
+      - l2-node
+    ports:
+      - "8565:8545"
+      - "8566:8546"
+    environment:
+      BOOTNODES: "enode://bb0602f39095e9c196d4639ca7cd3013f9f84e4015a889f06ac0f14827922dd9a518f80b62c5b53fbe0f796b6c484f410ce7a0395ef5b0b8c795d150becab4bf@10.10.11.201:30301"
+      TRACES_DIR: "/data/traces/work"
+      NETRESTRICT: "10.10.11.0/24"
+      DATA_DIR: "/data/l2-zkgeth/"
+      L2L1_CONTRACT_ADDRESS: "38c31972965cD3815B29F04Aa6e7e709E5Aa2bBe"
+      L2L1_TOPIC: "92206821512609212895568294081273245666920405472893996795189651117391493072019"
+    entrypoint: ""
+    command: [ "sh", "/scripts/node.sh", "24709958", "/genesis.json", "0xa", "0x1C9C380" ]
+    volumes:
+      - local-dev:/data
+      - ./scripts:/scripts:ro
+      - ./l2-genesis.json:/genesis.json:ro
+    networks:
+      - l2-network
+
+  corset:
+    container_name: corset
+    image: consensys/linea-corset:latest
+    depends_on:
+      - zkgeth
+    env_file:
+      - ./envs/corset.env
+    volumes:
+      - local-dev:/data
+      - logs:/logs
+    networks:
+      - l2-network
+
+  prover:
+    container_name: prover
+    image: consensys/linea-prover:latest
+    depends_on:
+      - corset
+    environment:
+      GOMAXPROCS: 16
+    env_file:
+      - ./envs/prover.env
+    volumes:
+      - local-dev:/data
+      - logs:/logs
+    networks:
+      - l2-network
+
+networks:
+  l1-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.10.0/24
+  l2-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.11.0/24
