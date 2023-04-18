@@ -108,7 +108,7 @@ services:
 
   deploy-l1-verifier:
     container_name: deploy-l1-verifier
-    image: consensys/linea-smart-contract:${IMAGE_TAG:-develop}
+    image: consensys/linea-smart-contract:latest
     depends_on:
       l1-node:
         condition: service_started
