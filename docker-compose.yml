@@ -151,7 +151,6 @@ services:
   relayer:
     container_name: relayer
     image: consensys/linea-relayer:3429825
-    # image: consensys/linea-relayer:3429825
     depends_on:
       l1-node:
         condition: service_started
