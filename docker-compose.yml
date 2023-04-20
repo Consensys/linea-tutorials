@@ -207,7 +207,7 @@ services:
 
   corset:
     container_name: corset
-    image: consensys/linea-corset:latest
+    image: consensys/linea-corset:v0.0.7
     depends_on:
       - zkgeth
     env_file:
@@ -220,7 +220,7 @@ services:
 
   prover:
     container_name: prover
-    image: consensys/linea-prover:latest
+    image: consensys/linea-prover:v0.0.6
     depends_on:
       - corset
     environment:
