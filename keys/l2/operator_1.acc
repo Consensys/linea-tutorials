@@ -1,0 +1,11 @@
+{
+    "account_key": {
+        "priv_key": "c6d61a4070719acb5d8cd7fab5243d65e880cf73e27cb062ecc45f7754c7c4d5",
+        "addr": "0x512e09cdde3b33e54da291529590e00eabae4cbe"
+    },
+    "encryption_key": {
+        "priv_key": "c6d61a4070719acb5d8cd7fab5243d65e880cf73e27cb062ecc45f7754c7c4d5",
+        "public_key": "2b49bb1a9ce059ec799d3af779a6fe37975b3355e274565aac7961a026f07defc81817395c5277d966b128054b86f5fe53a71550540660df5f82a694f4504b00",
+        "key_id": "operator_1_enc_key"
+    }
+}
