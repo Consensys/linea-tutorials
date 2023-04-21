@@ -15,4 +15,4 @@ make start-all
 |---------|---|
 | L1 Validator Node | 8445 |
 | L2 Validator Node | 8645 |
-| L2 BlockScout | 4000 |
+| L2 BlockScout | [4000](http://localhost:4000) |
