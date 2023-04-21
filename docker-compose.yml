@@ -2,11 +2,11 @@ version: "3.9"
 
 volumes:
   local-dev:
-    name: "zkevm-local-dev"
+    name: "linea-local-dev"
   logs:
-    name: "zkevm-logs"
+    name: "linea-logs"
 # to browse the volumes run
-# docker run --rm -it -v=zkevm-local-dev:/data -v=zkevm-logs:/logs ubuntu bash
+# docker run --rm -it -v=linea-local-dev:/data -v=linea-logs:/logs ubuntu bash
 
 services:
   # The node container is our entry point to issue RPC commands
