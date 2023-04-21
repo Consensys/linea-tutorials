@@ -233,6 +233,61 @@ services:
     networks:
       - l2-network
 
+########################################
+## L2 Observability tools             ##
+########################################
+
+  postgres:
+      container_name: postgres
+      image: postgres:13.8
+      environment:
+        POSTGRES_USER: ${POSTGRES_USER:-postgres}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+        PGDATA: /data/postgres
+      command: postgres -c config_file=/etc/postgresql/postgresql.conf
+      ports:
+        - "5432:5432"
+      healthcheck:
+        test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+        interval: 1s
+        timeout: 1s
+        retries: 30
+      restart: on-failure
+      volumes:
+        - ./postgres/init:/docker-entrypoint-initdb.d/
+        - ./postgres/conf/postgresql.conf:/etc/postgresql/postgresql.conf
+        - local-dev:/data
+        # - local-dev/logs/postgres/:/var/log/postgres/
+      networks:
+        - l1-network
+        - l2-network
+
+  l2-blockscout:
+    container_name: l2-blockscout
+    hostname: l2-blockscout
+    image: blockscout/blockscout:${BLOCKSCOUT_TAG:-5.0.0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      l2-node:
+        condition: service_started
+    command: bash -c "bin/blockscout eval \"Elixir.Explorer.ReleaseTasks.create_and_migrate()\" && bin/blockscout start"
+    env_file:
+      - ./envs/l2-blockscout.env
+    environment:
+      ETHEREUM_JSONRPC_HTTP_URL: http://l2-node:8545/
+      ETHEREUM_JSONRPC_TRACE_URL: http://l2-node:8545/
+      ETHEREUM_JSONRPC_WS_URL: ws://l2-node:8546/
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/l2_blockscout_db?ssl=false
+      ECTO_USE_SSL: 'false'
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./l2-genesis.json:/app/genesis.json:ro
+    networks:
+      - l2-network
+
 networks:
   l1-network:
     driver: bridge
