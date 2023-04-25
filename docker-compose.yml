@@ -143,7 +143,7 @@ services:
         node /smart_contract/scripts/changeZkVerification.js /data/smart_contract/rollup.json /node-data/test/keys/contract_owner.acc $${ZK_VERIFICATION_FLAG}
     volumes:
       - local-dev:/data
-      - ./relayer/smart_contract/smc_config.json:/smart_contract/pre-config/smc_config.json:r
+      - ./relayer/smart_contract/smc_config.json:/smart_contract/pre-config/smc_config.json:ro
       - ./keys/l1:/node-data/test/keys/
     networks:
       - l1-network
