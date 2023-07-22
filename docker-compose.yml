@@ -47,7 +47,7 @@ services:
     command: [ "sh", "/scripts/validator.sh", "0x6d976c9b8ceee705d4fe8699b44e5eb58242f484", "31648428", "/genesis.json", "0x4ecf8295", "0x1C9C380" ]
     volumes:
       - ./scripts:/scripts:ro
-      - ./keystore/L1/:/keystore:ro
+      - ./keystore/l1/:/keystore:ro
       - ./l1-genesis.json:/genesis.json:ro
       - local-dev:/data
     networks:
@@ -100,7 +100,7 @@ services:
     command: [ "sh", "/scripts/validator.sh", "0xc78635b3549a044e9d05356d1140c1a3adf4f0d4", "24709958", "/genesis.json", "0xa", "0x1C9C380" ]
     volumes:
       - ./scripts:/scripts:ro
-      - ./keystore/L2:/keystore:ro
+      - ./keystore/l2:/keystore:ro
       - ./l2-genesis.json:/genesis.json:ro
       - local-dev:/data
     networks:
